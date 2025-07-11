@@ -42,9 +42,8 @@ btg-software-engineer-challenge/
 ├── README.md
 
 🧠 Fluxo da Solução
-mermaid
-Copiar
-Editar
+
+```mermaid
 graph TD
     A[Mensagem chega na RabbitMQ] --> B[Consumer consome a mensagem]
     B --> C[Valida e converte DTO para entidade]
@@ -53,6 +52,8 @@ graph TD
     E --> F[Repository salva no PostgreSQL]
     F --> G[Dados disponíveis para API REST]
     G --> H[Usuário consulta via endpoint]
+```
+
 🧪 Funcionalidades
 🔄 Consumo de mensagens JSON via RabbitMQ
 
