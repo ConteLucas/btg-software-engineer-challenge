@@ -46,13 +46,45 @@ btg-software-engineer-challenge/
 
 ```mermaid
 graph LR
-    A[Mensagem chega na RabbitMQ] --> B[Consumer consome a mensagem]
-    B --> C[Valida e converte DTO para entidade]
-    C --> D[Chama Use Case de Processamento]
-    D --> E[Use Case persiste dados via Gateway]
-    E --> F[Repository salva no PostgreSQL]
-    F --> G[Dados disponíveis para API REST]
-    G --> H[Usuário consulta via endpoint]
+    subgraph "📩 RabbitMQ"
+        A[Mensagem na fila<br>pedido.json]
+    end
+
+    subgraph "📥 Consumer (Infra)"
+        B[Consumer escuta fila]
+        B --> C[Converte para DTO]
+    end
+
+    subgraph "🧠 Application Layer"
+        D[Validação e<br>mapeamento para entidade]
+        E[Chamada do Use Case]
+    end
+
+    subgraph "🌐 Domain Layer"
+        F[Use Case executa regra de negócio]
+        F --> G[Chama Gateway de persistência]
+    end
+
+    subgraph "💾 Infra: Database"
+        H[Mapper: entidade → model]
+        I[Repository salva no PostgreSQL]
+    end
+
+    subgraph "🌍 API REST (Controller)"
+        J[Requisição GET do cliente]
+        K[Consulta dados com Use Case]
+        L[Resposta com JSON]
+    end
+
+    A --> B
+    C --> D
+    D --> E
+    E --> F
+    G --> H
+    H --> I
+    I --> K
+    J --> K
+    K --> L
 ```
 
 🧪 Funcionalidades
