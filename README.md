@@ -40,6 +40,7 @@ btg-software-engineer-challenge/
 ├── docker-compose.yml
 ├── Dockerfile
 ├── README.md
+```
 
 🧠 Fluxo da Solução
 
