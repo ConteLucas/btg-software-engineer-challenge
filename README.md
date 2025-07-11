@@ -45,7 +45,7 @@ btg-software-engineer-challenge/
 🧠 Fluxo da Solução
 
 ```mermaid
-graph TD
+graph LR
     A[Mensagem chega na RabbitMQ] --> B[Consumer consome a mensagem]
     B --> C[Valida e converte DTO para entidade]
     C --> D[Chama Use Case de Processamento]
