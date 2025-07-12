@@ -5,6 +5,8 @@ import com.btg.orders.domain.entities.Order;
 import com.btg.orders.domain.gateways.ClientGateway;
 import com.btg.orders.domain.gateways.MessageGateway;
 import com.btg.orders.domain.gateways.OrderGateway;
+import com.btg.orders.domain.services.interfaces.EventPublisherServiceInterface;
+import com.btg.orders.domain.services.interfaces.OrderValidationServiceInterface;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,11 +34,17 @@ class ProcessOrderUseCaseTest {
     @Mock
     private MessageGateway messageGateway;
     
+    @Mock
+    private OrderValidationServiceInterface validationService;
+    
+    @Mock
+    private EventPublisherServiceInterface eventPublisher;
+    
     private ProcessOrderUseCase useCase;
     
     @BeforeEach
     void setUp() {
-        useCase = new ProcessOrderUseCase(orderGateway, clientGateway, messageGateway);
+        useCase = new ProcessOrderUseCase(orderGateway, clientGateway, messageGateway, validationService, eventPublisher);
     }
     
     @Test
@@ -61,7 +69,6 @@ class ProcessOrderUseCaseTest {
         Order savedOrder = new Order(orderCode, clientId);
         savedOrder.setId(1L);
         
-        when(orderGateway.existsByOrderCode(orderCode)).thenReturn(false);
         when(clientGateway.findOrCreateDefaultClient(clientId)).thenReturn(client);
         when(orderGateway.save(any(Order.class))).thenReturn(savedOrder);
         
@@ -73,10 +80,12 @@ class ProcessOrderUseCaseTest {
         assertEquals(orderCode, result.getOrderCode());
         assertEquals(clientId, result.getClientId());
         
-        verify(orderGateway).existsByOrderCode(orderCode);
+        verify(validationService).validateOrderForProcessing(orderCode, clientId, items);
+        verify(validationService).validateProcessedOrder(any(Order.class));
         verify(clientGateway).findOrCreateDefaultClient(clientId);
         verify(orderGateway).save(any(Order.class));
         verify(messageGateway).sendOrderProcessedNotification(orderCode);
+        verify(eventPublisher).publishOrderProcessedEvent(any(Order.class));
     }
     
     @Test
@@ -92,7 +101,8 @@ class ProcessOrderUseCaseTest {
                 .build()
         );
         
-        when(orderGateway.existsByOrderCode(orderCode)).thenReturn(true);
+        doThrow(new IllegalArgumentException("Order with code 1001 already exists"))
+            .when(validationService).validateOrderForProcessing(orderCode, clientId, items);
         
         // Act & Assert
         IllegalArgumentException exception = assertThrows(
@@ -101,10 +111,11 @@ class ProcessOrderUseCaseTest {
         );
         
         assertEquals("Order with code 1001 already exists", exception.getMessage());
-        verify(orderGateway).existsByOrderCode(orderCode);
+        verify(validationService).validateOrderForProcessing(orderCode, clientId, items);
         verify(clientGateway, never()).findOrCreateDefaultClient(anyLong());
         verify(orderGateway, never()).save(any(Order.class));
         verify(messageGateway).sendOrderErrorNotification(eq(orderCode), anyString());
+        verify(eventPublisher).publishOrderErrorEvent(eq(orderCode), anyString());
     }
     
     @Test
@@ -120,7 +131,6 @@ class ProcessOrderUseCaseTest {
                 .build()
         );
         
-        when(orderGateway.existsByOrderCode(orderCode)).thenReturn(false);
         when(clientGateway.findOrCreateDefaultClient(clientId)).thenThrow(new RuntimeException("Database error"));
         
         // Act & Assert
@@ -131,6 +141,7 @@ class ProcessOrderUseCaseTest {
         
         assertEquals("Database error", exception.getMessage());
         verify(messageGateway).sendOrderErrorNotification(eq(orderCode), eq("Database error"));
+        verify(eventPublisher).publishOrderErrorEvent(eq(orderCode), eq("Database error"));
     }
     
     @Test
@@ -157,7 +168,6 @@ class ProcessOrderUseCaseTest {
             .email("test@example.com")
             .build();
         
-        when(orderGateway.existsByOrderCode(orderCode)).thenReturn(false);
         when(clientGateway.findOrCreateDefaultClient(clientId)).thenReturn(client);
         when(orderGateway.save(any(Order.class))).thenAnswer(invocation -> {
             Order order = invocation.getArgument(0);
